@@ -1,0 +1,178 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  SALES
+  ONLY_VIEW
+}
+
+enum ContactAccess {
+  FULL
+  PARTIAL
+  HIDDEN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  DELIVERED
+  CANCELLED
+}
+
+enum RepairStatus {
+  RECEIVED
+  IN_PROGRESS
+  WAITING_PARTS
+  COMPLETED
+  DELIVERED
+}
+
+enum WarrantyStatus {
+  ACTIVE
+  EXPIRED
+  CLAIMED
+}
+
+model User {
+  id            String        @id @default(cuid())
+  name          String
+  email         String        @unique
+  passwordHash  String
+  role          Role          @default(SALES)
+  isActive      Boolean       @default(true)
+  avatar        String?
+  contactAccess ContactAccess @default(PARTIAL)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  orders  Order[]
+  repairs Repair[] @relation("Technician")
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String
+  whatsapp  String?
+  email     String?
+  address   String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders     Order[]
+  repairs    Repair[]
+  warranties Warranty[]
+}
+
+model Inventory {
+  id           String   @id @default(cuid())
+  brand        String
+  model        String
+  collection   String?
+  sku          String   @unique
+  serialNumber String   @unique
+  movement     String?
+  caseSize     String?
+  dialColor    String?
+  strap        String?
+  sellingPrice Decimal  @db.Decimal(10, 2)
+  costPrice    Decimal  @db.Decimal(10, 2)
+  stock        Int      @default(0)
+  images       String[]
+  supplier     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  orderItems OrderItem[]
+  repairs    Repair[]
+  warranties Warranty[]
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  customerId  String
+  userId      String
+  status      OrderStatus @default(PENDING)
+  totalAmount Decimal     @db.Decimal(10, 2)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  customer Customer    @relation(fields: [customerId], references: [id])
+  user     User        @relation(fields: [userId], references: [id])
+  items    OrderItem[]
+  warranty Warranty?
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  inventoryId String
+  quantity    Int     @default(1)
+  price       Decimal @db.Decimal(10, 2)
+
+  order     Order     @relation(fields: [orderId], references: [id])
+  inventory Inventory @relation(fields: [inventoryId], references: [id])
+}
+
+model Repair {
+  id                  String       @id @default(cuid())
+  customerId          String
+  inventoryId         String?
+  technicianId        String?
+  status              RepairStatus @default(RECEIVED)
+  pickupDate          DateTime?
+  deliveryDate        DateTime?
+  notes               String?
+  externalWatchBrand  String?
+  externalWatchModel  String?
+  externalWatchSerial String?
+  images              String[]
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  customer   Customer         @relation(fields: [customerId], references: [id])
+  inventory  Inventory?       @relation(fields: [inventoryId], references: [id])
+  technician User?            @relation("Technician", fields: [technicianId], references: [id])
+  timeline   RepairTimeline[]
+}
+
+model RepairTimeline {
+  id        String   @id @default(cuid())
+  repairId  String
+  note      String
+  status    RepairStatus
+  createdAt DateTime @default(now())
+
+  repair Repair @relation(fields: [repairId], references: [id])
+}
+
+model Warranty {
+  id          String         @id @default(cuid())
+  customerId  String
+  inventoryId String
+  orderId     String?        @unique
+  startDate   DateTime
+  endDate     DateTime
+  terms       String?
+  status      WarrantyStatus @default(ACTIVE)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  customer  Customer  @relation(fields: [customerId], references: [id])
+  inventory Inventory @relation(fields: [inventoryId], references: [id])
+  order     Order?    @relation(fields: [orderId], references: [id])
+}
+
+model Setting {
+  key       String   @id
+  value     String
+  group     String?
+  updatedAt DateTime @updatedAt
+}
